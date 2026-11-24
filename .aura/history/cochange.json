@@ -1,0 +1,39 @@
+{
+  "windowDays": 365,
+  "generatedAt": "2026-11-24T22:02:03.295Z",
+  "commitsConsidered": 6,
+  "totalCommitsInWindow": 21,
+  "maxJaccard": 0.38461538461538464,
+  "pairs": [
+    {
+      "a": "agente.py",
+      "b": "mundo.py",
+      "cochanges": 5,
+      "aCommits": 12,
+      "bCommits": 6,
+      "jaccard": 0.38461538461538464,
+      "support": 0.8333333333333334,
+      "linked": false
+    },
+    {
+      "a": "main.py",
+      "b": "mundo.py",
+      "cochanges": 3,
+      "aCommits": 6,
+      "bCommits": 6,
+      "jaccard": 0.3333333333333333,
+      "support": 0.5,
+      "linked": false
+    },
+    {
+      "a": "agente.py",
+      "b": "main.py",
+      "cochanges": 4,
+      "aCommits": 12,
+      "bCommits": 6,
+      "jaccard": 0.2857142857142857,
+      "support": 0.6666666666666666,
+      "linked": false
+    }
+  ]
+}

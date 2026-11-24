@@ -1,392 +1,257 @@
-import sys
 from PySide6.QtCore import QTimer, Qt
-from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFormLayout, 
-                               QHBoxLayout, QLabel, QLineEdit, QMainWindow, 
-                               QMessageBox, QProgressBar, QPushButton, 
-                               QStackedWidget, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QSpinBox,
+    QDoubleSpinBox,
+    QComboBox,
+    QGroupBox,
+    QFormLayout,
+    QProgressBar,
+    QTextEdit,
+    QStackedWidget,
+)
+from mundo import MundoCarrera
+from agente import AgenteQueAprende
 
-from agente import Usuario
-from mundo import Mundo
 
-class AgenteRunningApp(QMainWindow):
-
+class VentanaEntrenador(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Agente de Running Virtual")
-        self.resize(400, 500)
+        self.setWindowTitle("Entrenador Virtual IA — Agente que Aprende (UNAM)")
+        self.resize(780, 580)
 
-        # Objeto usuario y mundo
-        self.usuario = None
         self.mundo = None
+        self.agente = None
+        self.historial_fc = []
 
-        # Velocidad inicial del corredor kmh
-        self.velocidad_actual = 10.0
-
-        # Timer para la simulación
         self.timer = QTimer(self)
-        self.timer.timeout.connect(self.actualizar_simulacion)
-        self.intervalo_ms = 30
+        self.timer.timeout.connect(self._iteracion_simulacion)
 
-        # Stack de pantallas
-        self.stacked_widget = QStackedWidget()
-        self.setCentralWidget(self.stacked_widget)
+        self.stack = QStackedWidget(self)
+        layout_principal = QVBoxLayout(self)
+        layout_principal.addWidget(self.stack)
 
-        # Vistas
-        self.stacked_widget.addWidget(self.crear_pagina_formulario())
-        self.stacked_widget.addWidget(self.crear_pagina_reto())
-        self.stacked_widget.addWidget(self.crear_pagina_carrera())
-        self.stacked_widget.addWidget(self.crear_pagina_resumen())
+        self._construir_pagina_config()
+        self._construir_pagina_simulacion()
+        self._construir_pagina_resumen()
 
-    # Primera pantalla formulario
-    def crear_pagina_formulario(self):
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
-        layout.setContentsMargins(50, 50, 50, 50)
+    # ---------------- PÁGINA 1: CONFIGURACIÓN ----------------
+    def _construir_pagina_config(self):
+        pagina = QWidget()
+        layout = QVBoxLayout(pagina)
 
-        title = QLabel("Agente de Running Virtual")
-        title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet("font-size: 35px; font-weight: bold; margin-bottom: 10px;")
-        layout.addWidget(title)
+        titulo = QLabel("Configuración del Corredor y Meta de Entrenamiento")
+        titulo.setStyleSheet("font-size: 18px; font-weight: bold; margin-bottom: 8px;")
+        layout.addWidget(titulo)
 
-        form = QFormLayout()
+        grupo = QGroupBox("Parámetros Fisiológicos y Objetivo")
+        form = QFormLayout(grupo)
 
-        self.txt_nombre = QLineEdit()
-        self.txt_edad = QLineEdit()
+        self.input_edad = QSpinBox()
+        self.input_edad.setRange(15, 80)
+        self.input_edad.setValue(22)
 
-        self.cmb_nivel = QComboBox()
-        self.cmb_nivel.addItems(["Principiante", "Intermedio", "Avanzado"])
+        self.input_peso = QDoubleSpinBox()
+        self.input_peso.setRange(40.0, 150.0)
+        self.input_peso.setValue(70.0)
+        self.input_peso.setSuffix(" kg")
 
-        self.cmb_condicion = QComboBox()
-        self.cmb_condicion.addItems(["Ninguna", "Hipertensión", "Asma"])
+        self.input_nivel = QComboBox()
+        self.input_nivel.addItems(["Principiante", "Intermedio", "Avanzado"])
+        self.input_nivel.setCurrentText("Intermedio")
 
-        form.addRow("Nombre:", self.txt_nombre)
-        form.addRow("Edad:", self.txt_edad)
-        form.addRow("Nivel de Experiencia:", self.cmb_nivel)
-        form.addRow("Condición Médica:", self.cmb_condicion)
+        self.input_distancia = QDoubleSpinBox()
+        self.input_distancia.setRange(1.0, 42.2)
+        self.input_distancia.setValue(5.0)
+        self.input_distancia.setSuffix(" km")
 
-        layout.addLayout(form)
+        self.input_tiempo = QDoubleSpinBox()
+        self.input_tiempo.setRange(5.0, 240.0)
+        self.input_tiempo.setValue(25.0)
+        self.input_tiempo.setSuffix(" min")
 
-        # Checkbox de autorización
-        self.chk_autorizacion = QCheckBox(
-            "Autorizo el uso de mis datos de salud para el cálculo del reto y monitoreo."
-        )
-        layout.addWidget(self.chk_autorizacion)
+        form.addRow("Edad:", self.input_edad)
+        form.addRow("Peso:", self.input_peso)
+        form.addRow("Nivel de experiencia:", self.input_nivel)
+        form.addRow("Distancia meta:", self.input_distancia)
+        form.addRow("Tiempo límite:", self.input_tiempo)
+        layout.addWidget(grupo)
 
-        btn_generar = QPushButton("Calcular meta")
-        btn_generar.setStyleSheet("background-color: blue; color: white; font-weight: bold; padding: 10px;")
-        btn_generar.clicked.connect(self.procesar_formulario)
-        layout.addWidget(btn_generar)
-
-        return widget
-
-    def procesar_formulario(self):
-        # Validar campo de nombre
-        nombre = self.txt_nombre.text().strip()
-        if not nombre:
-            nombre = "Atleta"
-
-        # Validar edad
-        try:
-            edad = int(self.txt_edad.text())
-            if edad <= 0 or edad > 100:
-                raise ValueError()
-        except ValueError:
-            QMessageBox.warning(self, "Error de Entrada", "Ingresa una edad válida")
-            return
-
-        # Validar casilla de autorización
-        if not self.chk_autorizacion.isChecked():
-            QMessageBox.warning(
-                self, "Autorización requerida", "Por tu seguridad necesitas tener autorización para entrenar")
-            return
-
-        nivel = self.cmb_nivel.currentText().lower()
-        condicion_sel = self.cmb_condicion.currentText().lower()
-
-        # Mapear condiciones para agente.py
-        if condicion_sel == "hipertensión":
-            condiciones = ["hipertension"]
-        elif condicion_sel == "asma":
-            condiciones = ["asma"]
-        else:
-            condiciones = []
-
-        # Instanciar el agente Usuario
-        try:
-            self.usuario = Usuario(
-                nombre=nombre,
-                edad=edad,
-                nivel=nivel,
-                condiciones=condiciones,
-            )
-        except Exception as e:
-            QMessageBox.critical(self, "Error al crear usuario", str(e))
-            return
-
-        # Construir texto informativo para la vista del reto
-        condicion_texto = (
-            ", ".join(self.usuario.condiciones).capitalize()
-            if self.usuario.condiciones
-            else "Ninguna"
-        )
-
-        texto_reto = f"""
-        <b>Atleta:</b> {self.usuario.nombre}<br>
-        <b>Edad:</b> {self.usuario.edad} años<br>
-        <b>Nivel:</b> {self.usuario.nivel.capitalize()}<br>
-        <b>Condición Médica:</b> {condicion_texto}<br><br>
-        <b>Meta Propuesta:</b><br>
-        <b>Distancia:</b> {self.usuario.distancia_km:.1f} km<br>
-        <b>Tiempo Estimado:</b> {self.usuario.tiempo_min} minutos
-        """
-        self.lbl_detalles_reto.setText(texto_reto)
-        self.stacked_widget.setCurrentIndex(1)
-
-    # Reto calculado
-    def crear_pagina_reto(self):
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
-        layout.setContentsMargins(30, 30, 30, 30)
-
-        # 1. Título sin margen inferior exagerado
-        lbl_titulo = QLabel("Tu reto personalizado")
-        lbl_titulo.setAlignment(Qt.AlignCenter)
-        lbl_titulo.setStyleSheet(
-            "font-size: 20px; font-weight: bold; color: white;"
-        )
-        layout.addWidget(lbl_titulo)
-
-        # 2. Detalles del reto sin fondo blanco y con letra más grande
-        self.lbl_detalles_reto = QLabel("")
-        self.lbl_detalles_reto.setAlignment(Qt.AlignCenter)
-        self.lbl_detalles_reto.setStyleSheet(
-            "font-size: 16px; color: white; background: transparent; padding: 10px;"
-        )
-        layout.addWidget(self.lbl_detalles_reto)
-
-        # 3. Botones
-        btn_iniciar = QPushButton("Iniciar reto")
-        btn_iniciar.setStyleSheet(
-            "background-color: blue; color: white; padding: 12px; font-size: 15px; font-weight: bold; border-radius: 5px;"
-        )
-        btn_iniciar.clicked.connect(self.iniciar_simulacion)
+        btn_iniciar = QPushButton("Iniciar Entrenamiento con Agente que Aprende")
+        btn_iniciar.setStyleSheet("font-size: 14px; padding: 10px; font-weight: bold;")
+        btn_iniciar.clicked.connect(self._iniciar_sesion)
         layout.addWidget(btn_iniciar)
+        layout.addStretch()
 
-        btn_volver = QPushButton("Modificar Datos")
-        btn_volver.clicked.connect(lambda: self.stacked_widget.setCurrentIndex(0))
+        self.stack.addWidget(pagina)
+
+    # ---------------- PÁGINA 2: SIMULACIÓN EN VIVO ----------------
+    def _construir_pagina_simulacion(self):
+        pagina = QWidget()
+        layout = QVBoxLayout(pagina)
+
+        # Panel de telemetría física
+        grupo_telemetria = QGroupBox("Telemetría del Entorno y Corredor")
+        form_tel = QFormLayout(grupo_telemetria)
+
+        self.lbl_tiempo = QLabel("0.0 / 0.0 min")
+        self.lbl_distancia = QLabel("0.00 / 0.00 km")
+        self.lbl_fc = QLabel("72.0 bpm")
+        self.lbl_pendiente = QLabel("0.0 %")
+        self.lbl_ritmo = QLabel("6.00 min/km")
+
+        self.barra_progreso = QProgressBar()
+        self.barra_progreso.setRange(0, 100)
+
+        form_tel.addRow("Tiempo:", self.lbl_tiempo)
+        form_tel.addRow("Distancia:", self.lbl_distancia)
+        form_tel.addRow("Frecuencia Cardíaca:", self.lbl_fc)
+        form_tel.addRow("Pendiente Terreno:", self.lbl_pendiente)
+        form_tel.addRow("Ritmo Actual:", self.lbl_ritmo)
+        form_tel.addRow("Progreso Meta:", self.barra_progreso)
+        layout.addWidget(grupo_telemetria)
+
+        # Panel de Arquitectura de Agente que Aprende
+        grupo_ia = QGroupBox("Estado Interno del Agente que Aprende (Russell & Norvig)")
+        form_ia = QFormLayout(grupo_ia)
+
+        self.lbl_accion = QLabel("-")
+        self.lbl_accion.setStyleSheet("font-weight: bold; color: #0b5394;")
+        self.lbl_modo = QLabel("-")
+        self.lbl_critico = QLabel("-")
+        self.lbl_aprendizaje = QLabel("-")
+
+        form_ia.addRow("Elemento de Actuación:", self.lbl_accion)
+        form_ia.addRow("Generador de Problemas:", self.lbl_modo)
+        form_ia.addRow("Evaluación del Crítico:", self.lbl_critico)
+        form_ia.addRow("Parámetros Aprendidos:", self.lbl_aprendizaje)
+        layout.addWidget(grupo_ia)
+
+        self.log_eventos = QTextEdit()
+        self.log_eventos.setReadOnly(True)
+        layout.addWidget(self.log_eventos)
+
+        botones = QHBoxLayout()
+        btn_detener = QPushButton("Finalizar Sesión Ahora")
+        btn_detener.clicked.connect(self._finalizar_sesion)
+        botones.addWidget(btn_detener)
+        layout.addLayout(botones)
+
+        self.stack.addWidget(pagina)
+
+    # ---------------- PÁGINA 3: RESUMEN FINAL ----------------
+    def _construir_pagina_resumen(self):
+        pagina = QWidget()
+        layout = QVBoxLayout(pagina)
+
+        titulo = QLabel("Resumen de Sesión y Consolidación del Aprendizaje")
+        titulo.setStyleSheet("font-size: 18px; font-weight: bold;")
+        layout.addWidget(titulo)
+
+        self.lbl_resumen = QLabel("")
+        self.lbl_resumen.setWordWrap(True)
+        self.lbl_resumen.setStyleSheet("font-size: 13px; padding: 10px;")
+        layout.addWidget(self.lbl_resumen)
+
+        btn_volver = QPushButton("Nueva Sesión (Conservar Memoria Aprendida)")
+        btn_volver.clicked.connect(lambda: self.stack.setCurrentIndex(0))
         layout.addWidget(btn_volver)
+        layout.addStretch()
 
-        return widget
+        self.stack.addWidget(pagina)
 
-    # Carrera en vivo
-    def crear_pagina_carrera(self):
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
-        layout.setContentsMargins(25, 25, 25, 25)
+    # ---------------- LÓGICA DE CONTROL ----------------
+    def _iniciar_sesion(self):
+        edad = self.input_edad.value()
+        peso = self.input_peso.value()
+        nivel = self.input_nivel.currentText()
+        dist = self.input_distancia.value()
+        tiempo = self.input_tiempo.value()
 
-        lbl_titulo = QLabel("Entrenamiento en curso")
-        lbl_titulo.setAlignment(Qt.AlignCenter)
-        lbl_titulo.setStyleSheet("font-size: 18px; font-weight: bold;")
-        layout.addWidget(lbl_titulo)
+        self.mundo = MundoCarrera(edad, peso, nivel)
+        self.agente = AgenteQueAprende(edad, peso, nivel, dist, tiempo)
+        self.historial_fc = []
 
-        self.lbl_indicacion_agente = QLabel("MANTENERSE")
-        self.lbl_indicacion_agente.setAlignment(Qt.AlignCenter)
-        self.lbl_indicacion_agente.setStyleSheet("font-size: 14px; background-color: coral; color: black; padding: 10px;")
-        layout.addWidget(self.lbl_indicacion_agente)
-
-        self.lbl_tiempo_restante = QLabel("Tiempo Restante: --:--")
-        self.lbl_distancia_recorrida = QLabel("Distancia: 0.00 / 0.00 km")
-        self.lbl_frecuencia_cardiaca = QLabel("Frecuencia Cardíaca: -- bpm")
-
-        for lbl in [
-            self.lbl_tiempo_restante,
-            self.lbl_distancia_recorrida,
-            self.lbl_frecuencia_cardiaca,
-        ]:
-            lbl.setStyleSheet(
-                "font-size: 15px; color: #000000; font-weight: bold; margin-top: 5px;"
-            )
-            layout.addWidget(lbl)
-
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setRange(0, 100)
-        self.progress_bar.setValue(0)
-        layout.addWidget(self.progress_bar)
-
-        return widget
-
-    def iniciar_simulacion(self):
-        self.mundo = Mundo(self.usuario)
-        self.velocidad_actual = 11.0
-        self.progress_bar.setValue(0)
-        self.stacked_widget.setCurrentIndex(2)
-        self.timer.start(self.intervalo_ms)
-
-    def actualizar_simulacion(self):
-        fc_actual = self.mundo.sensor_frecuencia_cardiaca()
-
-        # Evaluación en tiempo real por el agente
-        indicacion = self.usuario.evaluar_esfuerzo(fc_actual)
-
-        # Ajuste dinámico de velocidad según la indicación
-        if "Acelerar" in indicacion:
-            self.velocidad_actual = min(16.0, self.velocidad_actual + 0.2)
-        elif "Frenar" in indicacion or "ALERTA" in indicacion:
-            self.velocidad_actual = max(5.0, self.velocidad_actual - 0.4)
-
-        # Avanzar la simulación del mundo
-        self.mundo.avanzar(self.velocidad_actual)
-
-        # Cálculos de interfaz
-        distancia_meta = self.usuario.distancia_km
-        tiempo_meta_seg = self.usuario.tiempo_min * 60
-
-        porcentaje = min(
-            100,
-            int((self.mundo.distancia_kilometros / distancia_meta) * 100),
+        self.log_eventos.clear()
+        self.log_eventos.append(
+            f"Sesión #{self.agente.sesiones_completadas + 1} iniciada | "
+            f"Zona FC objetivo: [{self.agente.fc_obj_min:.1f}, {self.agente.fc_obj_max:.1f}] bpm | "
+            f"Exploración ε={self.agente.epsilon:.2f}"
         )
-        self.progress_bar.setValue(porcentaje)
 
-        segundos_restantes = max(0, tiempo_meta_seg - self.mundo.tiempo_segundos)
-        min_rest = segundos_restantes // 60
-        seg_rest = segundos_restantes % 60
+        self.stack.setCurrentIndex(1)
+        self.timer.start(350)  # 350 ms por paso de simulación
 
-        # Cambiar color según la indicación
-        if "ALERTA" in indicacion:
-            bg_color = "#dc3545"
-        elif "Acelerar" in indicacion:
-            bg_color = "#ffc107"
-        else:
-            bg_color = "#28a745"
+    def _iteracion_simulacion(self):
+        percepcion = self.mundo.obtener_percepcion()
+        decision = self.agente.decidir_accion(percepcion)
+        nueva_percepcion = self.mundo.paso(decision["nuevo_ritmo"], dt_min=0.25)
 
-        self.lbl_indicacion_agente.setStyleSheet(f"""
-            QLabel {{
-                font-size: 16px; 
-                font-weight: bold; 
-                color: #ffffff; 
-                background-color: {bg_color}; 
-                border-radius: 10px; 
-                padding: 15px;
-            }}
-        """)
+        self.historial_fc.append(nueva_percepcion["fc"])
 
-        self.lbl_tiempo_restante.setText(
-            f"Tiempo Restante: {min_rest:02d}:{seg_rest:02d}"
+        # Actualizar interfaz
+        self.lbl_tiempo.setText(f"{nueva_percepcion['tiempo']:.2f} / {self.agente.tiempo_meta:.1f} min")
+        self.lbl_distancia.setText(f"{nueva_percepcion['distancia']:.2f} / {self.agente.distancia_meta:.2f} km")
+        self.lbl_fc.setText(
+            f"{nueva_percepcion['fc']:.1f} bpm (Ideal: {self.agente.fc_ideal:.1f} bpm)"
         )
-        self.lbl_distancia_recorrida.setText(
-            f"Distancia: {self.mundo.distancia_kilometros:.2f} / {distancia_meta:.2f} km"
-        )
-        self.lbl_frecuencia_cardiaca.setText(f"Frecuencia Cardíaca: {fc_actual} bpm")
-        self.lbl_indicacion_agente.setText(f"{indicacion.upper()}")
+        self.lbl_pendiente.setText(f"{nueva_percepcion['pendiente']:+.2f} %")
+        self.lbl_ritmo.setText(f"{nueva_percepcion['ritmo']:.2f} min/km")
 
-        # Verificar si completó el reto o se acabó el tiempo
+        progreso = int(min(100, (nueva_percepcion["distancia"] / self.agente.distancia_meta) * 100))
+        self.barra_progreso.setValue(progreso)
+
+        self.lbl_accion.setText(
+            f"{decision['accion']} -> {decision['nuevo_ritmo']:.2f} min/km (U = {decision['utilidad']})"
+        )
+        self.lbl_modo.setText(decision["modo"])
+        self.lbl_critico.setText(
+            f"{decision['diagnostico_critico']} | Error pred. FC: {decision['error_modelo']:+.2f} bpm"
+        )
+        p = decision["pesos"]
+        self.lbl_aprendizaje.setText(
+            f"w_meta={p['meta']:.2f}, w_cardio={p['cardio']:.2f} | "
+            f"Sensibilidad FC={decision['sensibilidad_fc']:.2f}"
+        )
+
+        self.log_eventos.append(
+            f"[t={nueva_percepcion['tiempo']:.2f}m] FC={nueva_percepcion['fc']:.1f} | "
+            f"Pend={nueva_percepcion['pendiente']:+.1f}% | {decision['accion']} ({decision['modo']})"
+        )
+
         if (
-            self.mundo.distancia_kilometros >= distancia_meta
-            or segundos_restantes <= 0
+            nueva_percepcion["distancia"] >= self.agente.distancia_meta
+            or nueva_percepcion["tiempo"] >= self.agente.tiempo_meta
         ):
-            self.finalizar_simulacion()
+            self._finalizar_sesion()
 
-    def finalizar_simulacion(self):
+    def _finalizar_sesion(self):
         self.timer.stop()
-        self.mostrar_resumen()
+        percepcion = self.mundo.obtener_percepcion()
+        fc_prom = sum(self.historial_fc) / max(1, len(self.historial_fc))
 
-    # Página de término
-    def crear_pagina_resumen(self):
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
-        layout.setContentsMargins(30, 30, 30, 30)
-
-        self.lbl_resumen_titulo = QLabel("Sesión Finalizada")
-        self.lbl_resumen_titulo.setAlignment(Qt.AlignCenter)
-        self.lbl_resumen_titulo.setStyleSheet(
-            "font-size: 20px; font-weight: bold; color: #28a745;"
+        score = self.agente.aprender_fin_sesion(
+            percepcion["distancia"], percepcion["tiempo"], fc_prom
         )
-        layout.addWidget(self.lbl_resumen_titulo)
 
-        self.lbl_resumen_detalles = QLabel("")
-        self.lbl_resumen_detalles.setAlignment(Qt.AlignCenter)
-        self.lbl_resumen_detalles.setStyleSheet("""
-            QLabel {
-                font-size: 14px; 
-                background-color: #ffffff; 
-                color: #1a1a1a; 
-                border: 1px solid #cccccc; 
-                border-radius: 8px; 
-                padding: 15px;
-            }
-        """)
-        layout.addWidget(self.lbl_resumen_detalles)
+        cumplio = percepcion["distancia"] >= (self.agente.distancia_meta * 0.98)
+        estado_meta = "META CUMPLIDA" if cumplio else "META NO ALCANZADA"
 
-        btn_inicio = QPushButton("Volver al Inicio")
-        btn_inicio.setStyleSheet(
-            "background-color: #007bff; color: white; padding: 10px; border-radius: 5px;"
+        texto = (
+            f"Resultado: {estado_meta}\n"
+            f"Distancia recorrida: {percepcion['distancia']:.2f} km / {self.agente.distancia_meta:.2f} km\n"
+            f"Tiempo total: {percepcion['tiempo']:.2f} min / {self.agente.tiempo_meta:.2f} min\n"
+            f"Frecuencia cardíaca promedio: {fc_prom:.1f} bpm (Límite seguro: {self.agente.fc_obj_max:.1f} bpm)\n"
+            f"Puntuación de desempeño de sesión: {score:.1f} / 100\n\n"
+            f"--- Memoria Persistente Actualizada (memoria_agente.json) ---\n"
+            f"Total de sesiones entrenadas: {self.agente.sesiones_completadas}\n"
+            f"Pesos aprendidos: w_meta = {self.agente.pesos['meta']:.3f}, w_cardio = {self.agente.pesos['cardio']:.3f}\n"
+            f"Sensibilidad cardíaca identificada: {self.agente.sensibilidad_fc_aprendida:.3f}\n"
+            f"Nueva tasa de exploración (ε): {self.agente.epsilon:.3f}"
         )
-        btn_inicio.clicked.connect(
-            lambda: self.stacked_widget.setCurrentIndex(0)
-        )
-        layout.addWidget(btn_inicio)
-
-        return widget
-
-    def mostrar_resumen(self):
-        distancia = self.mundo.distancia_kilometros
-        tiempo_seg = int(self.mundo.tiempo_segundos)
-        minutos = tiempo_seg // 60
-        segundos = tiempo_seg % 60
-
-        distancia_meta = self.usuario.distancia_km
-        tiempo_meta_seg = int(self.usuario.tiempo_min * 60)
-        
-        porcentaje_cumplido = min(100, (distancia / distancia_meta) * 100)
-        meta_lograda = porcentaje_cumplido >= 100
-
-        # Bloque de información extra dependiendo del resultado
-        extra_info = ""
-
-        if meta_lograda:
-            self.lbl_resumen_titulo.setText("Meta Cumplida")
-            self.lbl_resumen_titulo.setStyleSheet(
-                "font-size: 18px; font-weight: bold; color: #28a745;"
-            )
-            
-            # Cálculos de tiempo de sobra
-            tiempo_sobrante = max(0, tiempo_meta_seg - tiempo_seg)
-            min_meta = tiempo_meta_seg // 60
-            seg_meta = tiempo_meta_seg % 60
-            min_sobra = tiempo_sobrante // 60
-            seg_sobra = tiempo_sobrante % 60
-            
-            extra_info = f"""
-            <b>Tiempo Esperado:</b> {min_meta:02d}:{seg_meta:02d} min<br>
-            <b>Tiempo de Sobra:</b> {min_sobra:02d}:{seg_sobra:02d} min<br>
-            """
-        else:
-            self.lbl_resumen_titulo.setText("Sesión finalizada")
-            self.lbl_resumen_titulo.setStyleSheet(
-                "font-size: 18px; font-weight: bold; color: #dc3545;"
-            )
-            
-            # Cálculos de distancia faltante
-            distancia_faltante = max(0.0, distancia_meta - distancia)
-            
-            extra_info = f"""
-            <b>Distancia Objetivo:</b> {distancia_meta:.2f} km<br>
-            <b>Distancia Faltante:</b> {distancia_faltante:.2f} km<br>
-            """
-
-        resumen_txt = f"""
-        <b>Atleta:</b> {self.usuario.nombre}<br>
-        <b>Porcentaje de la Sesión Completado:</b> {porcentaje_cumplido:.1f}%<br>
-        <b>Distancia Recorrida:</b> {distancia:.2f} km de {distancia_meta:.2f} km<br>
-        <b>Tiempo Utilizado:</b> {minutos:02d}:{segundos:02d} min<br>
-        {extra_info}
-        """
-        self.lbl_resumen_detalles.setText(resumen_txt)
-        self.stacked_widget.setCurrentIndex(3)
-
-
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = AgenteRunningApp()
-    window.show()
-    sys.exit(app.exec())
+        self.lbl_resumen.setText(texto)
+        self.stack.setCurrentIndex(2)

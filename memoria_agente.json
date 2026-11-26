@@ -1,0 +1,20 @@
+{
+    "sesiones_completadas": 8,
+    "pesos": {
+        "meta": 2.5,
+        "cardio": 1.3,
+        "terreno": 1.0
+    },
+    "sensibilidad_fc": 15.1776,
+    "epsilon": 0.0681,
+    "historial_recompensas": [
+        100.4,
+        100.0,
+        100.0,
+        19.0,
+        36.2,
+        100.0,
+        39.4,
+        100.0
+    ]
+}

@@ -22,7 +22,7 @@ class AgenteQueAprende:
         self.distancia_meta = distancia_meta
         self.tiempo_meta = tiempo_meta
 
-        # Anclaje fisiológico (Ecuación de Tanaka)
+        # Ecuación de Tanaka
         self.fc_max = 208.0 - (0.7 * self.edad)
         factores = {
             "Principiante": (0.65, 0.75),
@@ -40,7 +40,7 @@ class AgenteQueAprende:
         self.ultimo_ritmo_base = None
         self.ultima_pendiente = 0.0
 
-        # Cargar conocimiento aprendido de sesiones anteriores o inicializar
+        # Carga conocimiento aprendido de sesiones anteriores o inicializar
         self._cargar_memoria()
 
     def _cargar_memoria(self):
@@ -60,8 +60,8 @@ class AgenteQueAprende:
         # Parámetros iniciales sin experiencia previa
         self.sesiones_completadas = 0
         self.pesos = {"meta": 1.0, "cardio": 1.0, "terreno": 1.0}
-        self.sensibilidad_fc_aprendida = 12.0  # Modelo interno inicial de respuesta cardíaca
-        self.epsilon = 0.25                    # Tasa inicial de exploración
+        self.sensibilidad_fc_aprendida = 12.0  
+        self.epsilon = 0.25                    
         self.historial_recompensas = []
 
     def guardar_memoria(self):
@@ -75,9 +75,8 @@ class AgenteQueAprende:
         with open(self.ARCHIVO_MEMORIA, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4)
 
-    # ---------------------------------------------------------
     # MÓDULO 2: CRÍTICO (Evaluación de desempeño y predicción)
-    # ---------------------------------------------------------
+
     def critico_evaluar(self, percepcion_actual):
         """
         Compara la FC real observada contra la FC predicha en el paso anterior
@@ -102,9 +101,9 @@ class AgenteQueAprende:
 
         return recompensa, error_modelo, diagnostico
 
-    # ---------------------------------------------------------
+
     # MÓDULO 3: ELEMENTO DE APRENDIZAJE (Actualización online)
-    # ---------------------------------------------------------
+
     def aprender_paso(self, percepcion_actual, tasa_aprendizaje=0.04):
         """
         Actualiza:
@@ -157,9 +156,8 @@ class AgenteQueAprende:
         self.guardar_memoria()
         return score_sesion
 
-    # ---------------------------------------------------------
     # MÓDULO 1 & 4: ACTUACIÓN (Utilidad) + GENERADOR DE PROBLEMAS
-    # ---------------------------------------------------------
+
     def calcular_utilidad(self, fc_estimada, ritmo_propuesto, ritmo_requerido, pendiente):
         error_fc = abs(fc_estimada - self.fc_ideal)
         penalizacion_fc = (error_fc / self.fc_max) * 100.0 * self.pesos["cardio"]
@@ -176,7 +174,6 @@ class AgenteQueAprende:
         return 100.0 - (penalizacion_fc + penalizacion_meta + penalizacion_terreno)
 
     def decidir_accion(self, percepcion):
-        # Primero aprende de la transición producida por la acción anterior
         recompensa, error_modelo, diagnostico = self.aprender_paso(percepcion)
 
         fc_actual = percepcion["fc"]

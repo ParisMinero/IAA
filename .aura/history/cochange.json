@@ -1,8 +1,8 @@
 {
   "windowDays": 365,
-  "generatedAt": "2026-11-24T22:02:03.295Z",
+  "generatedAt": "2026-11-25T23:48:21.853Z",
   "commitsConsidered": 6,
-  "totalCommitsInWindow": 21,
+  "totalCommitsInWindow": 22,
   "maxJaccard": 0.38461538461538464,
   "pairs": [
     {
@@ -19,9 +19,9 @@
       "a": "main.py",
       "b": "mundo.py",
       "cochanges": 3,
-      "aCommits": 6,
+      "aCommits": 7,
       "bCommits": 6,
-      "jaccard": 0.3333333333333333,
+      "jaccard": 0.3,
       "support": 0.5,
       "linked": false
     },
@@ -30,9 +30,19 @@
       "b": "main.py",
       "cochanges": 4,
       "aCommits": 12,
-      "bCommits": 6,
-      "jaccard": 0.2857142857142857,
+      "bCommits": 7,
+      "jaccard": 0.26666666666666666,
       "support": 0.6666666666666666,
+      "linked": false
+    },
+    {
+      "a": "README.md",
+      "b": "main.py",
+      "cochanges": 2,
+      "aCommits": 4,
+      "bCommits": 7,
+      "jaccard": 0.2222222222222222,
+      "support": 0.3333333333333333,
       "linked": false
     }
   ]

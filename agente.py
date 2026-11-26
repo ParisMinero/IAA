@@ -9,7 +9,7 @@ class AgenteQueAprende:
     1. Elemento de Actuación: Evalúa utilidad esperada y elige ritmo.
     2. Crítico: Evalúa el error de predicción fisiológica y el desempeño real.
     3. Elemento de Aprendizaje: Actualiza el modelo interno de sensibilidad cardíaca
-       y ajusta los pesos de la función de utilidad (w_meta, w_cardio, w_fatiga).
+       y ajusta los pesos de la función de utilidad (w_meta, w_cardio).
     4. Generador de Problemas: Exploración controlada (epsilon-greedy) para descubrir
        mejores políticas de ritmo.
     """
@@ -102,7 +102,7 @@ class AgenteQueAprende:
         return recompensa, error_modelo, diagnostico
 
 
-    # MÓDULO 3: ELEMENTO DE APRENDIZAJE (Actualización online)
+    # MÓDULO 3: ELEMENTO DE APRENDIZAJE 
 
     def aprender_paso(self, percepcion_actual, tasa_aprendizaje=0.04):
         """
